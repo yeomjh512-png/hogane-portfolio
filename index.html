@@ -77,7 +77,9 @@ const BORDER = "rgba(255,255,255,0.08)";
 const TEXT = "#E7E9EE";
 const GAIN = "#FF5C7A";
 const LOSS = "#5B9DFF";
+const SURFACE2_HEX = "#181C27";
 const STORAGE_KEY = "hogane-portfolio-data";
+const APIKEY_KEY = "hogane-portfolio-apikey";
 
 /* ---------- helpers ---------- */
 const num = (n) => Math.round(n).toLocaleString("ko-KR");
@@ -89,19 +91,29 @@ const formatDate = (d) => d ? d.replaceAll("-",".") : "";
 const formatMonthTick = (m) => { const [,mo]=m.split("-"); return `${parseInt(mo,10)}월`; };
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const emptyPerson = () => ({ transactions: [], prices: {} });
+const emptyPerson = () => ({ transactions: [], prices: {}, symbols: {} });
 const defaultData = () => ({ 공동: emptyPerson(), 지현: emptyPerson(), 호니: emptyPerson() });
 
 /* ---------- state ---------- */
 let data = loadData();
 let activeTab = "공동";
 let formState = { stock:"", qty:"", price:"", date: todayStr() };
+let refreshing = false;
+let statusMsg = null; // { type: 'info'|'success'|'error', text: string }
+
+const nowTimeStr = () => { const d=new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+function setStatus(type, text){ statusMsg = { type, text }; }
 
 function loadData(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return defaultData();
-    return { ...defaultData(), ...JSON.parse(raw) };
+    const merged = raw ? { ...defaultData(), ...JSON.parse(raw) } : defaultData();
+    for(const k of Object.keys(merged)){
+      merged[k].transactions = merged[k].transactions || [];
+      merged[k].prices = merged[k].prices || {};
+      merged[k].symbols = merged[k].symbols || {};
+    }
+    return merged;
   }catch(e){ return defaultData(); }
 }
 function saveData(){
@@ -198,6 +210,62 @@ function updatePrice(stock, value){
   saveData();
 }
 
+function updateSymbol(stock, value){
+  data[activeTab].symbols[stock] = value.trim();
+  saveData();
+}
+
+function saveApiKey(value){
+  try{
+    localStorage.setItem(APIKEY_KEY, value.trim());
+    return localStorage.getItem(APIKEY_KEY) === value.trim();
+  }catch(e){
+    return false;
+  }
+}
+
+async function refreshPrices(){
+  const key = localStorage.getItem(APIKEY_KEY) || "";
+  if(!key){ setStatus("error","먼저 API 키를 입력하고 저장해주세요."); render(); return; }
+  const person = data[activeTab];
+  const holdings = computeHoldings(person);
+  const pairs = holdings
+    .map(h => ({ stock: h.stock, symbol: (person.symbols[h.stock] || "").trim() }))
+    .filter(p => p.symbol);
+  if(pairs.length===0){ setStatus("error","종목코드를 먼저 입력해주세요. (예: 삼성전자 → 005930:KRX, 애플 → AAPL)"); render(); return; }
+
+  refreshing = true; setStatus("info", `${pairs.length}개 종목 조회 중…`); render();
+  try{
+    const symbolList = pairs.map(p=>p.symbol).join(",");
+    const url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbolList)}&apikey=${encodeURIComponent(key)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    let updated = 0;
+    const failed = [];
+    if(pairs.length===1){
+      if(json && json.price && !json.code){ person.prices[pairs[0].stock] = Number(json.price); updated++; }
+      else failed.push(pairs[0].symbol);
+    }else{
+      for(const p of pairs){
+        const entry = json[p.symbol];
+        if(entry && entry.price){ person.prices[p.stock] = Number(entry.price); updated++; }
+        else failed.push(p.symbol);
+      }
+    }
+    if(updated>0){
+      saveData();
+      setStatus("success", `${updated}개 종목 업데이트 완료 (${nowTimeStr()} 기준)${failed.length?` · 실패: ${failed.join(", ")}`:""}`);
+    }else{
+      const raw = JSON.stringify(json).slice(0,180);
+      setStatus("error", `시세를 가져오지 못했어요. API 응답: ${raw}`);
+    }
+  }catch(e){
+    setStatus("error", `요청 자체가 실패했어요 (네트워크 또는 CORS 차단 가능성). ${e && e.message ? e.message : ""}`);
+  }finally{
+    refreshing = false; render();
+  }
+}
+
 /* ---------- render ---------- */
 function render(){
   const person = data[activeTab];
@@ -241,21 +309,31 @@ function render(){
     </tr>`).join("")}
     </tbody></table></div>`;
 
-  const holdingRows = holdings.length===0 ? `<div class="empty">보유 종목이 여기에 표시돼요</div>` :
-    `<div class="scroll-y" style="max-height:280px"><table><thead><tr style="border-bottom:1px solid ${BORDER};font-size:11.5px;color:${MUTED}">
-      <th>종목</th><th>수량</th><th>평단가</th><th>현재가</th><th>평가손익</th>
-    </tr></thead><tbody>
-    ${holdings.map(h=>{
-      const gainColor = h.gain>=0?GAIN:LOSS;
-      return `<tr class="row-hover" style="border-bottom:1px solid ${BORDER};font-size:13px">
-      <td>${escapeHtml(h.stock)}</td>
-      <td class="mono">${num(h.qty)}</td>
-      <td class="mono" style="color:${MUTED}">${won(h.avgPrice)}</td>
-      <td><input type="number" class="field mono" style="width:84px;padding:5px 6px" data-role="price-input" data-stock="${escapeHtml(h.stock)}" value="${person.prices[h.stock] ?? Math.round(h.avgPrice)}"/></td>
-      <td class="mono" style="color:${gainColor};font-weight:600">${h.gain>=0?"+":""}${won(h.gain)}<span style="font-size:10.5px;margin-left:4px;opacity:.85">(${h.gainPct>=0?"+":""}${h.gainPct.toFixed(1)}%)</span></td>
-      </tr>`;
-    }).join("")}
-    </tbody></table></div>`;
+  const holdingRows = holdings.length===0 ? `<div class="empty">③ 매수 내역에 먼저 종목을 등록하면 여기에 표시돼요</div>` :
+    `<div class="scroll-y" style="max-height:420px">
+      ${holdings.map(h=>{
+        const gainColor = h.gain>=0?GAIN:LOSS;
+        return `<div style="border:1px solid ${BORDER};border-radius:12px;padding:12px 12px 10px;margin-bottom:10px;background:${SURFACE2_HEX}">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px">
+            <span style="font-weight:600;font-size:13.5px">${escapeHtml(h.stock)}</span>
+            <span class="mono" style="color:${gainColor};font-weight:600;font-size:13px;white-space:nowrap">${h.gain>=0?"+":""}${won(h.gain)} <span style="font-size:10.5px;opacity:.85">(${h.gainPct>=0?"+":""}${h.gainPct.toFixed(1)}%)</span></span>
+          </div>
+          <div style="font-size:11px;color:${MUTED};margin-bottom:10px">보유 ${num(h.qty)}주 · 평단가 ${won(h.avgPrice)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="flex:1 1 140px">
+              <div style="font-size:10px;color:${MUTED};margin-bottom:4px">종목코드 (예: 005930:KRX, AAPL)</div>
+              <input type="text" class="field mono" style="width:100%" placeholder="종목코드 입력" data-role="symbol-input" data-stock="${escapeHtml(h.stock)}" value="${escapeHtml(person.symbols[h.stock] || "")}"/>
+            </div>
+            <div style="flex:1 1 100px">
+              <div style="font-size:10px;color:${MUTED};margin-bottom:4px">현재가 (원)</div>
+              <input type="number" class="field mono" style="width:100%" data-role="price-input" data-stock="${escapeHtml(h.stock)}" value="${person.prices[h.stock] ?? Math.round(h.avgPrice)}"/>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  const savedApiKey = localStorage.getItem(APIKEY_KEY) || "";
 
   document.getElementById("app").innerHTML = `
     <div class="eyebrow"><span style="color:${meta.accent}">●</span><span>LIVE PORTFOLIO</span></div>
@@ -272,12 +350,19 @@ function render(){
         </div>
       </div>
       <div class="hero-detail">
-        <div class="cap">${meta.label} 총 평가금액</div>
+        <div class="cap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span>${meta.label} 총 평가금액</span>
+          <button type="button" data-role="refresh-prices" ${refreshing?"disabled":""}
+            style="border:1px solid ${BORDER};background:${SURFACE2_HEX};color:${refreshing?MUTED:TEXT};border-radius:7px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
+            ${refreshing ? "조회 중…" : "⟳ 새로고침"}
+          </button>
+        </div>
         <div class="big display mono">${won(totalValue)}</div>
         <div class="badge mono" style="color:${totalGain>=0?GAIN:LOSS};background:${(totalGain>=0?GAIN:LOSS)}14">
           ${totalGain>=0?"▲":"▼"} ${totalGain>=0?"+":""}${won(totalGain)} (${totalGainPct>=0?"+":""}${totalGainPct.toFixed(1)}%)
         </div>
         <div class="cost-line">총 매수원가 ${won(totalCost)}</div>
+        ${statusMsg ? `<div style="font-size:10.5px;margin-top:6px;color:${statusMsg.type==="error"?"#F87171":statusMsg.type==="success"?"#4ADE80":MUTED}">${escapeHtml(statusMsg.text)}</div>` : ""}
       </div>
     </div>
 
@@ -305,7 +390,13 @@ function render(){
       </div>
 
       <div class="card">
-        <div class="card-head"><h3 class="display">④ 보유 종목 현재가</h3><span class="note">조회 시점 현재가를 직접 입력</span></div>
+        <div class="card-head"><h3 class="display">④ 보유 종목 현재가</h3><span class="note">종목코드 입력 후 자동 조회, 또는 직접 입력</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" class="field" style="flex:1 1 160px" placeholder="Twelve Data API 키" id="f-apikey" value="${escapeHtml(savedApiKey)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+          <button type="button" class="add-btn" style="flex:0 0 auto;width:auto;padding:0 12px;font-size:12.5px;font-weight:600;background:${SURFACE2_HEX};border:1px solid ${BORDER}" data-role="save-apikey">키 저장</button>
+          <button type="button" class="add-btn" style="flex:0 0 auto;width:auto;padding:0 12px;font-size:12.5px;font-weight:600;background:${meta.accent}" data-role="refresh-prices" ${refreshing?"disabled":""}>${refreshing?"조회 중…":"⟳ 시세 새로고침"}</button>
+        </div>
+        ${statusMsg ? `<div style="font-size:11.5px;padding:8px 10px;border-radius:8px;margin-bottom:12px;line-height:1.5;background:${statusMsg.type==="error"?"#F8717122":statusMsg.type==="success"?"#4ADE8022":"rgba(255,255,255,0.05)"};color:${statusMsg.type==="error"?"#F87171":statusMsg.type==="success"?"#4ADE80":MUTED}">${escapeHtml(statusMsg.text)}</div>` : ""}
         ${holdingRows}
       </div>
     </div>
@@ -322,6 +413,20 @@ document.getElementById("app").addEventListener("click", (e)=>{
   if(tabBtn){ switchTab(tabBtn.dataset.tab); return; }
   const delBtn = e.target.closest('[data-role="delete-tx"]');
   if(delBtn){ deleteTx(delBtn.dataset.id); return; }
+  const saveKeyBtn = e.target.closest('[data-role="save-apikey"]');
+  if(saveKeyBtn){
+    const input = document.getElementById("f-apikey");
+    const ok = saveApiKey(input ? input.value : "");
+    if(ok){
+      setStatus("success", "API 키가 이 기기에 저장됐어요.");
+    }else{
+      setStatus("error", "저장에 실패했어요. 시크릿(비공개) 모드에서는 저장이 안 될 수 있어요.");
+    }
+    render();
+    return;
+  }
+  const refreshBtn = e.target.closest('[data-role="refresh-prices"]');
+  if(refreshBtn){ refreshPrices(); return; }
 });
 
 document.getElementById("app").addEventListener("input", (e)=>{
@@ -334,6 +439,8 @@ document.getElementById("app").addEventListener("input", (e)=>{
 document.getElementById("app").addEventListener("change", (e)=>{
   const priceInput = e.target.closest('[data-role="price-input"]');
   if(priceInput){ updatePrice(priceInput.dataset.stock, priceInput.value); }
+  const symbolInput = e.target.closest('[data-role="symbol-input"]');
+  if(symbolInput){ updateSymbol(symbolInput.dataset.stock, symbolInput.value); }
 });
 
 render();
