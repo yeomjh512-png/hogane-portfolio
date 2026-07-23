@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>HoGane PORTFOLIO</title>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="HoGane" />
+<meta name="theme-color" content="#0A0C12" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+  :root{
+    --bg:#0A0C12; --surface:#12151D; --surface2:#181C27; --border:rgba(255,255,255,0.08);
+    --text:#E7E9EE; --muted:#7A8299; --gain:#FF5C7A; --loss:#5B9DFF;
+    --accent:#35E0C8;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text); font-family:'Inter','Pretendard',sans-serif; }
+  body{ padding-bottom: env(safe-area-inset-bottom); }
+  .display{ font-family:'Space Grotesk',sans-serif; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  input,button{ font-family:inherit; }
+  input::placeholder{ color:#4A5064; }
+  input:focus, button:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  table{ border-collapse:collapse; width:100%; }
+  th,td{ text-align:left; padding:10px 6px; }
+  .row-hover:hover{ background:rgba(255,255,255,0.02); }
+  ::-webkit-scrollbar{ width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.12); border-radius:3px; }
+  .wrap{ max-width:640px; margin:0 auto; padding:28px 16px 64px; }
+  .eyebrow{ display:flex; align-items:center; gap:8px; margin-bottom:2px; }
+  .eyebrow span{ font-size:11px; letter-spacing:0.18em; color:var(--muted); font-weight:600; }
+  h1{ font-size:24px; font-weight:700; letter-spacing:-0.02em; margin:4px 0 20px; }
+  .tabs{ display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:4px; margin-bottom:20px; }
+  .tab-btn{ flex:1; border:none; border-radius:10px; padding:10px 0; font-size:13.5px; font-weight:600; cursor:pointer; background:transparent; color:var(--muted); transition:background .2s,color .2s,box-shadow .2s; }
+  .tab-btn.active{ color:#05080D; }
+  .hero{ background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:26px 22px; margin-bottom:16px; display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
+  .ring-outer{ position:relative; width:130px; height:130px; flex-shrink:0; border-radius:50%; }
+  .ring-inner{ position:absolute; inset:9px; border-radius:50%; background:var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+  .ring-inner .lbl{ font-size:9.5px; letter-spacing:.14em; color:var(--muted); font-weight:600; }
+  .ring-inner .val{ font-size:15px; font-weight:700; margin-top:5px; padding:0 8px; line-height:1.25; }
+  .ring-inner .unit{ font-size:9px; color:var(--muted); }
+  .hero-detail{ min-width:180px; flex:1; }
+  .hero-detail .cap{ font-size:12.5px; color:var(--muted); margin-bottom:6px; }
+  .hero-detail .big{ font-size:26px; font-weight:700; margin-bottom:8px; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:600; padding:4px 9px; border-radius:8px; }
+  .cost-line{ font-size:11.5px; color:var(--muted); margin-top:8px; }
+  .stack{ display:flex; flex-direction:column; gap:16px; }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:18px 16px 14px; }
+  .card-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; flex-wrap:wrap; gap:4px; }
+  .card-head h3{ font-size:14px; font-weight:600; margin:0; }
+  .card-head .note{ font-size:10px; color:var(--muted); }
+  .empty{ padding:28px 8px; text-align:center; color:var(--muted); font-size:12.5px; }
+  .field{ border:1px solid var(--border); border-radius:8px; padding:8px 9px; font-size:12.5px; background:var(--surface2); color:var(--text); min-width:0; }
+  .tx-form{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .add-btn{ border:none; border-radius:8px; color:#05080D; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 40px; transition:filter .15s, transform .1s; font-size:18px; font-weight:700; }
+  .add-btn:hover{ filter:brightness(1.15); }
+  .add-btn:active{ transform:scale(.97); }
+  .del-btn{ background:none; border:none; cursor:pointer; color:var(--muted); padding:2px; font-size:13px; }
+  .scroll-y{ max-height:240px; overflow-y:auto; }
+  .footer-note{ font-size:10.5px; color:var(--muted); text-align:center; margin-top:22px; }
+</style>
+</head>
+<body>
+  <div class="wrap" id="app"></div>
+
+<script>
+/* ---------- constants ---------- */
+const TABS = [
+  { key:"공동", label:"공동", accent:"#35E0C8" },
+  { key:"지현", label:"지현", accent:"#A78BFA" },
+  { key:"호니", label:"호니", accent:"#FFB454" },
+];
+const MUTED = "#7A8299";
+const BORDER = "rgba(255,255,255,0.08)";
+const TEXT = "#E7E9EE";
+const GAIN = "#FF5C7A";
+const LOSS = "#5B9DFF";
+const SURFACE2_HEX = "#181C27";
+const STORAGE_KEY = "hogane-portfolio-data";
+const APIKEY_KEY = "hogane-portfolio-apikey";
+
+/* ---------- helpers ---------- */
+const num = (n) => Math.round(n).toLocaleString("ko-KR");
+const won = (n) => `${num(n)}원`;
+const pad2 = (n) => String(n).padStart(2,"0");
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; };
+const monthKeyOf = (d) => d ? d.slice(0,7) : "";
+const formatDate = (d) => d ? d.replaceAll("-",".") : "";
+const formatMonthTick = (m) => { const [,mo]=m.split("-"); return `${parseInt(mo,10)}월`; };
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const emptyPerson = () => ({ transactions: [], prices: {}, symbols: {} });
+const defaultData = () => ({ 공동: emptyPerson(), 지현: emptyPerson(), 호니: emptyPerson() });
+
+/* ---------- state ---------- */
+let data = loadData();
+let activeTab = "공동";
+let formState = { stock:"", qty:"", price:"", date: todayStr() };
+let refreshing = false;
+let statusMsg = null; // { type: 'info'|'success'|'error', text: string }
+
+const nowTimeStr = () => { const d=new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+function setStatus(type, text){ statusMsg = { type, text }; }
+
+function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const merged = raw ? { ...defaultData(), ...JSON.parse(raw) } : defaultData();
+    for(const k of Object.keys(merged)){
+      merged[k].transactions = merged[k].transactions || [];
+      merged[k].prices = merged[k].prices || {};
+      merged[k].symbols = merged[k].symbols || {};
+    }
+    return merged;
+  }catch(e){ return defaultData(); }
+}
+function saveData(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  catch(e){ console.error("저장 실패", e); }
+}
+
+/* ---------- mini line chart (no external libs) ---------- */
+function lineChartSVG(points, key, color, todayIndex){
+  const width=320, height=180;
+  const padding = { top:14, right:12, bottom:26, left:54 };
+  const w = width - padding.left - padding.right;
+  const h = height - padding.top - padding.bottom;
+  const values = points.map(p=>p[key]);
+  const maxV = Math.max(...values, 1);
+  const minV = 0;
+  const xStep = points.length>1 ? w/(points.length-1) : 0;
+  const scaleY = (v) => padding.top + h - ((v-minV)/((maxV-minV)||1))*h;
+  const pts = points.map((p,i)=>({ x: padding.left + i*xStep, y: scaleY(p[key]) }));
+  const pathD = pts.map((p,i)=> (i===0?"M":"L")+p.x.toFixed(1)+","+p.y.toFixed(1)).join(" ");
+
+  const gridLines = [0,0.5,1].map(t=>{
+    const v = minV + (maxV-minV)*t;
+    const y = scaleY(v);
+    return `<line x1="${padding.left}" y1="${y.toFixed(1)}" x2="${width-padding.right}" y2="${y.toFixed(1)}" stroke="${BORDER}" stroke-width="1"/>
+      <text x="${padding.left-8}" y="${(y+3).toFixed(1)}" font-size="9" fill="${MUTED}" text-anchor="end" font-family="JetBrains Mono, monospace">${num(v/10000)}만</text>`;
+  }).join("");
+
+  const todayX = pts[todayIndex] ? pts[todayIndex].x : null;
+  const todayLine = todayX!=null ? `<line x1="${todayX}" y1="${padding.top}" x2="${todayX}" y2="${padding.top+h}" stroke="${MUTED}" stroke-width="1" stroke-dasharray="4,3"/>
+     <text x="${todayX}" y="${padding.top-4}" font-size="9" fill="${MUTED}" text-anchor="middle">오늘</text>` : "";
+
+  const xLabels = pts.map((p,i)=> `<text x="${p.x.toFixed(1)}" y="${height-6}" font-size="9.5" fill="${i===todayIndex?TEXT:MUTED}" text-anchor="middle" font-weight="${i===todayIndex?600:400}">${formatMonthTick(points[i].month)}</text>`).join("");
+
+  const dots = pts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${color}"><title>${formatMonthTick(points[i].month)}: ${won(points[i][key])}</title></circle>`).join("");
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="180" style="overflow:visible">
+    ${gridLines}${todayLine}
+    <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}${xLabels}
+  </svg>`;
+}
+
+/* ---------- derived data ---------- */
+function getMonthWindow(){
+  const now = new Date();
+  const arr = [];
+  for(let i=-3;i<=3;i++){
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    arr.push(`${d.getFullYear()}-${pad2(d.getMonth()+1)}`);
+  }
+  return arr;
+}
+
+function computeHoldings(person){
+  const map = {};
+  for(const t of person.transactions){
+    if(!map[t.stock]) map[t.stock] = { stock:t.stock, qty:0, cost:0 };
+    map[t.stock].qty += t.qty;
+    map[t.stock].cost += t.qty * t.price;
+  }
+  return Object.values(map).map(h=>{
+    const avgPrice = h.cost / h.qty;
+    const current = (person.prices[h.stock] !== undefined && person.prices[h.stock] !== "") ? person.prices[h.stock] : avgPrice;
+    const value = current * h.qty;
+    return { ...h, avgPrice, current, value, gain: value - h.cost, gainPct: h.cost ? ((value-h.cost)/h.cost)*100 : 0 };
+  }).sort((a,b)=> b.value - a.value);
+}
+
+/* ---------- actions ---------- */
+function switchTab(key){ activeTab = key; render(); }
+
+function handleAddSubmit(e){
+  e.preventDefault();
+  const qty = Number(formState.qty);
+  const price = Number(formState.price);
+  if(!formState.stock.trim() || !qty || qty<=0 || !price || price<=0 || !formState.date) return;
+  const tx = { id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`, stock: formState.stock.trim(), qty, price, date: formState.date };
+  data[activeTab].transactions.push(tx);
+  saveData();
+  formState = { stock:"", qty:"", price:"", date: formState.date };
+  render();
+}
+
+function deleteTx(id){
+  data[activeTab].transactions = data[activeTab].transactions.filter(t=>t.id!==id);
+  saveData();
+  render();
+}
+
+function updatePrice(stock, value){
+  const price = Number(value);
+  data[activeTab].prices[stock] = price>=0 ? price : 0;
+  saveData();
+}
+
+function updateSymbol(stock, value){
+  data[activeTab].symbols[stock] = value.trim();
+  saveData();
+}
+
+function saveApiKey(value){
+  try{
+    localStorage.setItem(APIKEY_KEY, value.trim());
+    return localStorage.getItem(APIKEY_KEY) === value.trim();
+  }catch(e){
+    return false;
+  }
+}
+
+async function refreshPrices(){
+  const key = localStorage.getItem(APIKEY_KEY) || "";
+  if(!key){ setStatus("error","먼저 API 키를 입력하고 저장해주세요."); render(); return; }
+  const person = data[activeTab];
+  const holdings = computeHoldings(person);
+  const pairs = holdings
+    .map(h => ({ stock: h.stock, symbol: (person.symbols[h.stock] || "").trim() }))
+    .filter(p => p.symbol);
+  if(pairs.length===0){ setStatus("error","종목코드를 먼저 입력해주세요. (예: 삼성전자 → 005930:KRX, 애플 → AAPL)"); render(); return; }
+
+  refreshing = true; setStatus("info", `${pairs.length}개 종목 조회 중…`); render();
+  try{
+    const symbolList = pairs.map(p=>p.symbol).join(",");
+    const url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbolList)}&apikey=${encodeURIComponent(key)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    let updated = 0;
+    const failed = [];
+    if(pairs.length===1){
+      if(json && json.price && !json.code){ person.prices[pairs[0].stock] = Number(json.price); updated++; }
+      else failed.push(pairs[0].symbol);
+    }else{
+      for(const p of pairs){
+        const entry = json[p.symbol];
+        if(entry && entry.price){ person.prices[p.stock] = Number(entry.price); updated++; }
+        else failed.push(p.symbol);
+      }
+    }
+    if(updated>0){
+      saveData();
+      setStatus("success", `${updated}개 종목 업데이트 완료 (${nowTimeStr()} 기준)${failed.length?` · 실패: ${failed.join(", ")}`:""}`);
+    }else{
+      const raw = JSON.stringify(json).slice(0,180);
+      setStatus("error", `시세를 가져오지 못했어요. API 응답: ${raw}`);
+    }
+  }catch(e){
+    setStatus("error", `요청 자체가 실패했어요 (네트워크 또는 CORS 차단 가능성). ${e && e.message ? e.message : ""}`);
+  }finally{
+    refreshing = false; render();
+  }
+}
+
+/* ---------- render ---------- */
+function render(){
+  const person = data[activeTab];
+  const meta = TABS.find(t=>t.key===activeTab);
+  const monthWindow = getMonthWindow();
+  const currentMonthKey = monthWindow[3];
+
+  const monthlyPurchase = monthWindow.map(month=>({
+    month,
+    amount: person.transactions.filter(t=>monthKeyOf(t.date)===month).reduce((s,t)=>s+t.qty*t.price,0)
+  }));
+  const cumulativeFlow = monthWindow.map(month=>({
+    month,
+    total: person.transactions.filter(t=>monthKeyOf(t.date)<=month).reduce((s,t)=>s+t.qty*t.price,0)
+  }));
+
+  const holdings = computeHoldings(person);
+  const totalValue = holdings.reduce((s,h)=>s+h.value,0);
+  const totalCost = holdings.reduce((s,h)=>s+h.cost,0);
+  const totalGain = totalValue - totalCost;
+  const totalGainPct = totalCost ? (totalGain/totalCost)*100 : 0;
+
+  const sortedTx = [...person.transactions].sort((a,b)=> a.date<b.date?1:a.date>b.date?-1:0);
+
+  const tabsHtml = TABS.map(t=>{
+    const active = t.key===activeTab;
+    return `<button class="tab-btn${active?" active":""}" data-role="tab" data-tab="${t.key}"
+      style="background:${active?t.accent:"transparent"};box-shadow:${active?`0 0 18px ${t.accent}55`:"none"}">${t.label}</button>`;
+  }).join("");
+
+  const txRows = sortedTx.length===0 ? `<div class="empty">위 양식으로 첫 매수 내역을 기록해보세요</div>` :
+    `<div class="scroll-y"><table><thead><tr style="border-bottom:1px solid ${BORDER};font-size:11.5px;color:${MUTED}">
+      <th>종목</th><th>수량</th><th>단가</th><th>매수일</th><th></th>
+    </tr></thead><tbody>
+    ${sortedTx.map(t=>`<tr class="row-hover" style="border-bottom:1px solid ${BORDER};font-size:13px">
+      <td>${escapeHtml(t.stock)}</td>
+      <td class="mono">${num(t.qty)}</td>
+      <td class="mono">${won(t.price)}</td>
+      <td class="mono" style="color:${MUTED}">${formatDate(t.date)}</td>
+      <td><button class="del-btn" data-role="delete-tx" data-id="${t.id}" aria-label="삭제">✕</button></td>
+    </tr>`).join("")}
+    </tbody></table></div>`;
+
+  const holdingRows = holdings.length===0 ? `<div class="empty">③ 매수 내역에 먼저 종목을 등록하면 여기에 표시돼요</div>` :
+    `<div class="scroll-y" style="max-height:420px">
+      ${holdings.map(h=>{
+        const gainColor = h.gain>=0?GAIN:LOSS;
+        return `<div style="border:1px solid ${BORDER};border-radius:12px;padding:12px 12px 10px;margin-bottom:10px;background:${SURFACE2_HEX}">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px">
+            <span style="font-weight:600;font-size:13.5px">${escapeHtml(h.stock)}</span>
+            <span class="mono" style="color:${gainColor};font-weight:600;font-size:13px;white-space:nowrap">${h.gain>=0?"+":""}${won(h.gain)} <span style="font-size:10.5px;opacity:.85">(${h.gainPct>=0?"+":""}${h.gainPct.toFixed(1)}%)</span></span>
+          </div>
+          <div style="font-size:11px;color:${MUTED};margin-bottom:10px">보유 ${num(h.qty)}주 · 평단가 ${won(h.avgPrice)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="flex:1 1 140px">
+              <div style="font-size:10px;color:${MUTED};margin-bottom:4px">종목코드 (예: 005930:KRX, AAPL)</div>
+              <input type="text" class="field mono" style="width:100%" placeholder="종목코드 입력" data-role="symbol-input" data-stock="${escapeHtml(h.stock)}" value="${escapeHtml(person.symbols[h.stock] || "")}"/>
+            </div>
+            <div style="flex:1 1 100px">
+              <div style="font-size:10px;color:${MUTED};margin-bottom:4px">현재가 (원)</div>
+              <input type="number" class="field mono" style="width:100%" data-role="price-input" data-stock="${escapeHtml(h.stock)}" value="${person.prices[h.stock] ?? Math.round(h.avgPrice)}"/>
+            </div>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>`;
+
+  const savedApiKey = localStorage.getItem(APIKEY_KEY) || "";
+
+  document.getElementById("app").innerHTML = `
+    <div class="eyebrow"><span style="color:${meta.accent}">●</span><span>LIVE PORTFOLIO</span></div>
+    <h1 class="display">HoGane PORTFOLIO</h1>
+
+    <div class="tabs">${tabsHtml}</div>
+
+    <div class="hero">
+      <div class="ring-outer" style="background:conic-gradient(from -90deg, ${meta.accent}, ${meta.accent}22 65%, transparent 66%); box-shadow:0 0 36px ${meta.accent}40">
+        <div class="ring-inner" style="box-shadow: inset 0 0 18px ${meta.accent}22">
+          <span class="lbl">평가금액</span>
+          <span class="val mono">${num(totalValue)}</span>
+          <span class="unit">원</span>
+        </div>
+      </div>
+      <div class="hero-detail">
+        <div class="cap" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span>${meta.label} 총 평가금액</span>
+          <button type="button" data-role="refresh-prices" ${refreshing?"disabled":""}
+            style="border:1px solid ${BORDER};background:${SURFACE2_HEX};color:${refreshing?MUTED:TEXT};border-radius:7px;padding:4px 9px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap">
+            ${refreshing ? "조회 중…" : "⟳ 새로고침"}
+          </button>
+        </div>
+        <div class="big display mono">${won(totalValue)}</div>
+        <div class="badge mono" style="color:${totalGain>=0?GAIN:LOSS};background:${(totalGain>=0?GAIN:LOSS)}14">
+          ${totalGain>=0?"▲":"▼"} ${totalGain>=0?"+":""}${won(totalGain)} (${totalGainPct>=0?"+":""}${totalGainPct.toFixed(1)}%)
+        </div>
+        <div class="cost-line">총 매수원가 ${won(totalCost)}</div>
+        ${statusMsg ? `<div style="font-size:10.5px;margin-top:6px;color:${statusMsg.type==="error"?"#F87171":statusMsg.type==="success"?"#4ADE80":MUTED}">${escapeHtml(statusMsg.text)}</div>` : ""}
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <div class="card-head"><h3 class="display">① 월별 누적 매수금액 흐름</h3><span class="note">최근 3개월 ~ 향후 3개월 · 누적 매수 원금 기준</span></div>
+        ${lineChartSVG(cumulativeFlow, "total", meta.accent, 3)}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3 class="display">② 월별 매수금액 합계</h3><span class="note">최근 3개월 ~ 향후 3개월</span></div>
+        ${lineChartSVG(monthlyPurchase, "amount", GAIN, 3)}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3 class="display">③ 매수 내역</h3></div>
+        <form class="tx-form" id="tx-form">
+          <input class="field" style="flex:1 1 110px" placeholder="종목명" id="f-stock" value="${escapeHtml(formState.stock)}"/>
+          <input class="field" style="flex:1 1 70px" type="number" min="1" placeholder="수량" id="f-qty" value="${escapeHtml(formState.qty)}"/>
+          <input class="field" style="flex:1 1 90px" type="number" min="0" placeholder="매수단가" id="f-price" value="${escapeHtml(formState.price)}"/>
+          <input class="field" style="flex:1 1 130px;color-scheme:dark" type="date" id="f-date" value="${formState.date}"/>
+          <button type="submit" class="add-btn" style="background:${meta.accent}" aria-label="매수 내역 추가">+</button>
+        </form>
+        ${txRows}
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3 class="display">④ 보유 종목 현재가</h3><span class="note">종목코드 입력 후 자동 조회, 또는 직접 입력</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" class="field" style="flex:1 1 160px" placeholder="Twelve Data API 키" id="f-apikey" value="${escapeHtml(savedApiKey)}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"/>
+          <button type="button" class="add-btn" style="flex:0 0 auto;width:auto;padding:0 12px;font-size:12.5px;font-weight:600;background:${SURFACE2_HEX};border:1px solid ${BORDER}" data-role="save-apikey">키 저장</button>
+          <button type="button" class="add-btn" style="flex:0 0 auto;width:auto;padding:0 12px;font-size:12.5px;font-weight:600;background:${meta.accent}" data-role="refresh-prices" ${refreshing?"disabled":""}>${refreshing?"조회 중…":"⟳ 시세 새로고침"}</button>
+        </div>
+        ${statusMsg ? `<div style="font-size:11.5px;padding:8px 10px;border-radius:8px;margin-bottom:12px;line-height:1.5;background:${statusMsg.type==="error"?"#F8717122":statusMsg.type==="success"?"#4ADE8022":"rgba(255,255,255,0.05)"};color:${statusMsg.type==="error"?"#F87171":statusMsg.type==="success"?"#4ADE80":MUTED}">${escapeHtml(statusMsg.text)}</div>` : ""}
+        ${holdingRows}
+      </div>
+    </div>
+
+    <p class="footer-note">입력한 데이터는 이 기기의 브라우저에 자동 저장돼요</p>
+  `;
+
+  document.getElementById("tx-form").addEventListener("submit", handleAddSubmit);
+}
+
+/* ---------- event delegation ---------- */
+document.getElementById("app").addEventListener("click", (e)=>{
+  const tabBtn = e.target.closest('[data-role="tab"]');
+  if(tabBtn){ switchTab(tabBtn.dataset.tab); return; }
+  const delBtn = e.target.closest('[data-role="delete-tx"]');
+  if(delBtn){ deleteTx(delBtn.dataset.id); return; }
+  const saveKeyBtn = e.target.closest('[data-role="save-apikey"]');
+  if(saveKeyBtn){
+    const input = document.getElementById("f-apikey");
+    const ok = saveApiKey(input ? input.value : "");
+    if(ok){
+      setStatus("success", "API 키가 이 기기에 저장됐어요.");
+    }else{
+      setStatus("error", "저장에 실패했어요. 시크릿(비공개) 모드에서는 저장이 안 될 수 있어요.");
+    }
+    render();
+    return;
+  }
+  const refreshBtn = e.target.closest('[data-role="refresh-prices"]');
+  if(refreshBtn){ refreshPrices(); return; }
+});
+
+document.getElementById("app").addEventListener("input", (e)=>{
+  if(e.target.id==="f-stock") formState.stock = e.target.value;
+  if(e.target.id==="f-qty") formState.qty = e.target.value;
+  if(e.target.id==="f-price") formState.price = e.target.value;
+  if(e.target.id==="f-date") formState.date = e.target.value;
+});
+
+document.getElementById("app").addEventListener("change", (e)=>{
+  const priceInput = e.target.closest('[data-role="price-input"]');
+  if(priceInput){ updatePrice(priceInput.dataset.stock, priceInput.value); }
+  const symbolInput = e.target.closest('[data-role="symbol-input"]');
+  if(symbolInput){ updateSymbol(symbolInput.dataset.stock, symbolInput.value); }
+});
+
+render();
+</script>
+</body>
+</html>
